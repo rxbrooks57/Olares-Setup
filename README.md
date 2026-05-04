@@ -28,15 +28,14 @@ A complete, production-ready guide for setting up a powerful local AI workstatio
 - RAM: 96GB
 # 📀 Disk Layout
 ### NVMe 1 (4TB) — Olares + Shared Models
-
 | Partition | Size | Filesystem | Purpose |
 |-----------|------|------------|---------|
 |EFI (shared)|512MB|FAT32|Bootloader|
 |Root (/)|100GB|ext4|Olares OS|
 |Swap|48GB|swap|GPU offloading|
 |MODELS|~3.4TB|NTFS|Shared models|
-### NVMe 2 (4TB) — Windows + Scratch
 
+### NVMe 2 (4TB) — Windows + Scratch
 | Partition | Size | Filesystem | Purpose |
 |-----------|------|------------|---------|
 |Windows|250GB|NTFS|Windows 11|
@@ -121,18 +120,17 @@ chmod +x master_install_fp8.sh symlinks.sh
 ./symlinks.sh
 ```
 # 📚 Recommended Tools
-
 StabilityMatrix — Best central manager
 ComfyUI + comfy-kitchen
 Ostris AI-Toolkit
 LM Studio / Ollama / Fooocus
 
 ⚠️ Important Warnings
-
 Backup your data before repartitioning drives.
 Always run Windows scripts as Administrator.
 Use ntfs-3g with proper options when mounting in Olares.
 Update SageAttention wheel URLs if newer versions are released.
+
 # 📚 References
 #### SageAttention Blackwell 
 - https://github.com/mobcat40/sageattention-blackwell

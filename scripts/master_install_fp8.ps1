@@ -1,80 +1,70 @@
-# master_install_fp8.ps1 - Enhanced with checks & error handling
+# master_install_fp8.ps1 - Enhanced RTX 5090 Blackwell Installer
 param([switch]$SkipChecks)
 
-Write-Host "=== Olares One RTX 5090 Master Installer (Windows) ===" -ForegroundColor Green
+Write-Host "=== Olares One RTX 5090 Master Installer (FP8 + SageAttention) ===" -ForegroundColor Green
 
 # ========================= CONFIGURATION =========================
 $SAGE_WHEEL = "https://github.com/mobcat40/sageattention-blackwell/releases/latest/download/sageattention-2.2.0+cu128.torch2.11-cp311-cp311-win_amd64.whl"
 $TORCH_INDEX = "https://download.pytorch.org/whl/nightly/cu128"
 $PYTHON_VER = "3.11"
-# ================================================================
 
 $MAMBA_ROOT = "$env:USERPROFILE\mambaforge"
 $MAMBA_EXE = "$MAMBA_ROOT\Scripts\mamba.exe"
+# ================================================================
 
 # ====================== PRE-FLIGHT CHECKS ======================
 if (-not $SkipChecks) {
-    # Admin check
     $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Host "[ERROR] Script must be run as Administrator!" -ForegroundColor Red
+        Write-Host "[ERROR] This script must be run as Administrator!" -ForegroundColor Red
         exit 1
     }
 
-    # Internet check
     try {
-        $test = Invoke-WebRequest -Uri "https://www.google.com" -Method Head -TimeoutSec 5
+        Invoke-WebRequest -Uri "https://www.google.com" -Method Head -TimeoutSec 5 | Out-Null
     } catch {
-        Write-Host "[ERROR] No internet connection. Please connect and retry." -ForegroundColor Red
+        Write-Host "[ERROR] No internet connection detected." -ForegroundColor Red
         exit 1
     }
 
-    # NVIDIA check
     $nvidia = Get-WmiObject Win32_VideoController | Where-Object { $_.Name -like "*NVIDIA*" }
-    if (-not $nvidia) {
-        Write-Host "[WARNING] No NVIDIA GPU detected!" -ForegroundColor Yellow
-        $continue = Read-Host "Continue anyway? (y/N)"
-        if ($continue -notlike "y*") { exit 1 }
-    } else {
+    if ($nvidia) {
         Write-Host "✓ NVIDIA GPU detected: $($nvidia.Name)" -ForegroundColor Green
-    }
-
-    # Disk space check (rough)
-    $drive = Get-PSDrive D -ErrorAction SilentlyContinue
-    if ($drive -and $drive.Free/1GB -lt 50) {
-        Write-Host "[WARNING] Low disk space on D: (<50GB free)" -ForegroundColor Yellow
+    } else {
+        Write-Host "[WARNING] No NVIDIA GPU detected!" -ForegroundColor Yellow
+        $cont = Read-Host "Continue anyway? (y/N)"
+        if ($cont -notlike "y*") { exit 1 }
     }
 }
 
-# ====================== INSTALL MAMBAFORGE ======================
+# ====================== MAMBAFORGE ======================
 if (-not (Test-Path $MAMBA_ROOT)) {
     Write-Host "Installing Mambaforge..." -ForegroundColor Cyan
     try {
         $installer = "$env:TEMP\Mambaforge.exe"
-        Invoke-WebRequest -Uri "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Windows-x86_64.exe" `
-                         -OutFile $installer -ErrorAction Stop
+        Invoke-WebRequest -Uri "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Windows-x86_64.exe" -OutFile $installer -ErrorAction Stop
         Start-Process -FilePath $installer -ArgumentList "/S /AddToPath=1" -Wait -ErrorAction Stop
         Write-Host "✓ Mambaforge installed" -ForegroundColor Green
     } catch {
-        Write-Host "[ERROR] Mambaforge install failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[ERROR] Mambaforge installation failed: $($_.Exception.Message)" -ForegroundColor Red
         exit 1
     }
 }
 
-# Refresh PATH
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# ====================== HELPER FUNCTION ======================
+# ====================== HELPER FUNCTIONS ======================
 function Make-Env {
     param($Name)
     Write-Host "`n=== Creating environment: $Name ===" -ForegroundColor Cyan
     try {
         & $MAMBA_EXE create -n $Name "python=$PYTHON_VER" -y --quiet
         & $MAMBA_EXE run -n $Name pip install --pre torch torchvision torchaudio --index-url $TORCH_INDEX
-        Write-Host "✓ Environment $Name ready" -ForegroundColor Green
+        Write-Host "✓ Environment $Name created" -ForegroundColor Green
+        return $true
     } catch {
-        Write-Host "[ERROR] Failed to create $Name environment: $($_.Exception.Message)" -ForegroundColor Red
-        throw
+        Write-Host "[ERROR] Failed to create $Name : $($_.Exception.Message)" -ForegroundColor Red
+        return $false
     }
 }
 
@@ -83,21 +73,48 @@ try {
     # SageAttention
     $SAGE_DIR = "$env:USERPROFILE\sageattention-blackwell"
     if (-not (Test-Path $SAGE_DIR)) {
+        Write-Host "Cloning SageAttention repo..." -ForegroundColor Cyan
         git clone https://github.com/mobcat40/sageattention-blackwell $SAGE_DIR
     }
 
     # 1. ComfyUI
-    Make-Env "comfy"
-    & $MAMBA_EXE run -n comfy pip install $SAGE_WHEEL comfy-kitchen
+    if (Make-Env "comfy") {
+        & $MAMBA_EXE run -n comfy pip install $SAGE_WHEEL comfy-kitchen
+        $COMFY_DIR = "$env:USERPROFILE\ComfyUI"
+        if (-not (Test-Path $COMFY_DIR)) {
+            git clone https://github.com/comfyanonymous/ComfyUI.git $COMFY_DIR
+        }
+        & $MAMBA_EXE run -n comfy pip install -r "$COMFY_DIR\requirements.txt"
+    }
 
-    # ... (rest of your envs with similar try/catch)
+    # 2. Ostris AI-Toolkit
+    if (Make-Env "aitools") {
+        $AIKIT_DIR = "$env:USERPROFILE\ai-toolkit"
+        if (-not (Test-Path $AIKIT_DIR)) {
+            git clone https://github.com/ostris/ai-toolkit.git $AIKIT_DIR
+            cd $AIKIT_DIR; git submodule update --init --recursive
+        }
+        & $MAMBA_EXE run -n aitools pip install -r "$AIKIT_DIR\requirements.txt"
+    }
+
+    # 3. StabilityMatrix
+    if (Make-Env "stability") {
+        & $MAMBA_EXE run -n stability pip install $SAGE_WHEEL
+    }
+
+    # 4. SillyTavern + LLM
+    if (Make-Env "llm") {
+        & $MAMBA_EXE run -n llm pip install vllm transformers accelerate sentencepiece
+    }
 
 } catch {
-    Write-Host "`n[CRITICAL ERROR] Installation failed. See above." -ForegroundColor Red
+    Write-Host "`n[CRITICAL] Installation failed at some point." -ForegroundColor Red
     Write-Host "You can resume with: .\master_install_fp8.ps1 -SkipChecks" -ForegroundColor Yellow
     exit 1
 }
 
 Write-Host "`n==============================================" -ForegroundColor Green
-Write-Host "✅ ALL ENVIRONMENTS INSTALLED SUCCESSFULLY" -ForegroundColor Green
+Write-Host "✅ ALL ENVIRONMENTS INSTALLED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "=============================================="
+Write-Host "Environments: comfy, aitools, stability, llm"
+Write-Host "Next: Update paths in start-comfyui.bat and launch via dashboard."

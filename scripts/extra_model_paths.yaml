@@ -1,0 +1,40 @@
+# ComfyUI extra_model_paths.yaml
+# Place this file in your ComfyUI root folder (C:\ComfyUI or ~/ComfyUI)
+
+# Shared Models (NTFS)
+checkpoints:
+  - D:\AI\Models\SD\checkpoints
+  - /mnt/models/SD/checkpoints
+
+vae:
+  - D:\AI\Models\SD\vae
+  - /mnt/models/SD/vae
+
+lora:
+  - D:\AI\Models\SD\lora
+  - /mnt/models/SD/lora
+
+controlnet:
+  - D:\AI\Models\SD\controlnet
+  - /mnt/models/SD/controlnet
+
+embeddings:
+  - D:\AI\Models\SD\embeddings
+  - /mnt/models/SD/embeddings
+
+upscale_models:
+  - D:\AI\Models\SD\upscale
+  - /mnt/models/SD/upscale
+
+clip:
+  - D:\AI\Models\Tools\ComfyUI\clip
+  - /mnt/models/Tools/ComfyUI/clip
+
+# Optional: Add more as needed
+hypernetworks:
+  - D:\AI\Models\SD\hypernetworks
+  - /mnt/models/SD/hypernetworks
+
+loras:  # Some custom nodes use this key
+  - D:\AI\Models\SD\lora
+  - /mnt/models/SD/lora

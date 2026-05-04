@@ -138,3 +138,9 @@ Update SageAttention wheel URLs if newer versions are released.
 - https://github.com/mobcat40/sageattention-blackwell
 #### Olares Documentation
 - https://docs.olares.com/
+
+## Made for the Olares + RTX 5090 community.
+⭐ Star this repo if it helped you!
+Issues, PRs, and suggestions are welcome.
+
+Last Updated: May 2026
